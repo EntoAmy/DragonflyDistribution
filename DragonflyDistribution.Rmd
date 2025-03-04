@@ -1,0 +1,183 @@
+---
+title: 
+output: 
+  html_document: 
+    theme: flatly
+    keep_md: true
+date: 
+---
+
+
+# The global distribution of South Africa's four *Anax* species
+
+There are four species of *Anax* (Emperor dragonflies) found in South Africa. Their ranges are extensive. This is a handy bit of code to visualize their distributions using R and GIS wizardry.
+
+First, let's set up our work space. These are the packages that we'll need to run this code, check that they're installed and in your library:
+
+```{r packageLib, results= "hide", warning=FALSE, message=FALSE}
+
+my_packages <- c("rmarkdown", "tidyverse", "sf", "rinat", "raster", "lwgeom", "leaflet","leafpop","rosm", "ggspatial", "prettymapr", "mapview", "rnaturalearth","readxl","htmltools","bslib") 
+lapply(my_packages, require, character.only = TRUE)
+
+```
+
+# Acquire Data
+
+We'll need some data. iNaturalist is a great place to find observational data on organisms around the world, including dragonflies. The data for this exercise was downloaded and stored in the GitHub repository - you can find it [here](https://github.com/EntoAmy/Dragonfly_GIS/tree/main/iNatData). <br> The four species of dragonflies are:
+
+| Common Name     | Scientific Name     |                                       |
+|:--------------------|:-------------------------|:-----------------------:|
+| Blue Emperor    | *Anax* *imperator*  |   ![Blue emperor](Images/Imperator.png)   |
+| Orange Emperor  | *Anax* *speratus*   |  ![Orange emperor](Images/Speratus.png)   |
+| Vagrant Emperor | *Anax* *ephippiger* | ![Vagrant emperor](Images/Ephippiger.png) |
+| Black Emperor   | *Anax* *tristis*    |   ![Black emperor](Images/Tristis.png)    |
+
+<br> The species names will be used for the respective data sets below: <br> We'll begin by reading in the data: <br>
+
+```{r readData}
+imperator <- read.csv("iNatData/obs_imperator.csv")
+speratus <- read.csv("iNatData/obs_speratus.csv")
+ephippiger <-read.csv("iNatData/obs_ephippiger.csv")
+tristis <- read.csv("iNatData/obs_tristis.csv")
+```
+
+<br> Then we'll clean it up. Because iNaturalist makes use of citizen scientists to log their observations, the data isn't always accurate or complete.\
+We're filtering the data frames to remove observations without locations, and those with positional accuracy grater than 500m (dragonflies move around freely, so I've allowed for quite a bit inaccuracy here). We'll also only include 'research grade' data, which has been somewhat verified by other users. <br>
+
+```{r cleanData}
+imperator <- imperator %>% filter(positional_accuracy < 500 & !is.na(latitude) & quality_grade == "research")
+speratus <- speratus %>% filter(positional_accuracy < 500 & !is.na(latitude) & quality_grade == "research")
+ephippiger <- ephippiger %>% filter(positional_accuracy < 500 & !is.na(latitude) & quality_grade == "research")
+tristis <- tristis %>% filter(positional_accuracy < 500 & !is.na(latitude) & quality_grade == "research")
+
+```
+
+<br> In order for the GIS wizardry to work, we'll convert these tabular data frames to spatial objects using the Sf package: <br>
+
+```{r CreateSf}
+imperatorSf <- st_as_sf(imperator, coords = c("longitude", "latitude"), crs = 4326) 
+speratusSf <- st_as_sf(speratus, coords = c("longitude", "latitude"), crs = 4326) 
+ephippigerSf <- st_as_sf(ephippiger, coords = c("longitude", "latitude"), crs = 4326) 
+tristisSf <- st_as_sf(tristis, coords = c("longitude", "latitude"), crs = 4326)
+```
+
+<br> Then we'll use the following code to check that the data is indeed of the Sf class, and that the correct co-ordinate reference system is used for each: <br>
+
+```{r DataChecks, results='asis'}
+cat("<details><summary>Click to expand the meaty results of these checks</summary>\n")
+class(imperatorSf) 
+class(speratusSf) 
+class(ephippigerSf) 
+class(tristisSf)
+
+st_crs(imperatorSf) 
+st_crs(speratusSf) 
+st_crs(ephippigerSf) 
+st_crs(tristisSf)
+cat("</details>\n")
+```
+<br> 
+Now that we're confident that our data are accurate, research grade, and spatial objects, we can visualize them on a map: 
+<br>
+```{r TestPlots, fig.align='center'}
+ggplot() + 
+  annotation_map_tile(type = "osm", progress = "none") + 
+  geom_sf(data = imperatorSf, color = "#83aed1") + 
+  ggtitle(expression("Distribution of " * italic("Anax") * italic(" imperator")))
+
+ggplot() + 
+  annotation_map_tile(type = "osm", progress = "none") + 
+  geom_sf(data = speratusSf, color = "#e1a56d") + 
+  ggtitle(expression("Distribution of " * italic("Anax") *  italic("speratus")))
+
+ggplot() + 
+  annotation_map_tile(type = "osm", progress = "none") + 
+  geom_sf(data = ephippigerSf, color = "#afbd6c") + 
+  ggtitle(expression("Distribution of " * italic("Anax") * italic(" ephippiger")))
+
+ggplot() + 
+  annotation_map_tile(type = "osm", progress = "none") + 
+  geom_sf(data = tristisSf, color = "#9980ab") + 
+  ggtitle(expression("Distribution of " * italic("Anax") * italic(" tristis")))
+```
+<br> 
+Great! These maps show the distribution of these species well, and the colour coding helps to differentiate them. However, these maps aren't actually very useful to look at the observational data of one species in relation to another, nor does it allow us to visulise the data on any meaningful scale. 
+<br> 
+An interactive map, with all the species on it, would be much more useful! 
+So we'll use the Leaflet package to create a better map:
+<br> 
+```{r LeafletMap1,fig.align='center'}
+leaflet() %>%
+  addTiles(group = "Default") %>%
+  addCircleMarkers(data = imperatorSf, 
+                   group = "Anax imperator", 
+                   radius = 2, 
+                   color = "#83aed1") %>%
+  addCircleMarkers(data = speratusSf, 
+                   group = "Anax speratus", 
+                   radius = 2, 
+                   color = "#e1a56d") %>%
+  addCircleMarkers(data = ephippigerSf, 
+                   group = "Anax ephippiger", 
+                   radius = 2, 
+                   color = "#afbd6c") %>%
+  addCircleMarkers(data = tristisSf, 
+                   group = "Anax tristis", 
+                   radius = 2, 
+                   color = "#9980ab") %>%
+  addLegend(position = "topright", 
+            colors = c("#83aed1", "#e1a56d", "#afbd6c", "#9980ab"), 
+            labels = c("Blue Emperor", "Orange Emperor", "Vagrant Emperor", "Black Emperor"))
+```
+<br> 
+Much better! 
+<br> 
+Although, it would be easier to visualize this data if we could choose which species to display. So lets do that again, adding a layer control to choose which species' data we'd like to see: 
+And while we're at it, it would make sense to see more details for each observation - perhaps even a clickable link to the iNaturalist page? 
+<br> 
+This chunk of code will create clickable links for us to add to popup labels: 
+```{r MakeClickable}
+limperatorSf <- imperatorSf %>% mutate(click_url = paste("<b><a href='", url, "'>Link to iNat observation</a></b>")) 
+lsperatusSf <- speratusSf %>% mutate(click_url = paste("<b><a href='", url, "'>Link to iNat observation</a></b>")) 
+lephippigerSf <- ephippigerSf %>% mutate(click_url = paste("<b><a href='", url, "'>Link to iNat observation</a></b>")) 
+ltristisSf <- tristisSf %>% mutate(click_url = paste("<b><a href='", url, "'>Link to iNat observation</a></b>"))
+
+```
+<br> 
+And now we're ready to create our user-friendly, and very pretty, interactive map: 
+```{r LeafletMap2, fig.align='center',fig.height=8,fig.width=10}
+leaflet() %>%
+ addTiles(group = "Default") %>%
+ addCircleMarkers(data = imperatorSf, 
+                  group = "Anax imperator", 
+                  radius = 2, 
+                  color = "#83aed1", 
+                  popup = popupTable(limperatorSf,zcol = c("click_url"))) %>%
+ addCircleMarkers(data = speratusSf, 
+                  group = "Anax speratus", 
+                  radius = 2, 
+                  color = "#e1a56d", 
+                  popup = popupTable(lsperatusSf,zcol = c("click_url"))) %>%
+ addCircleMarkers(data = ephippigerSf, 
+                  group = "Anax ephippiger", 
+                  radius = 2, 
+                  color = "#afbd6c", 
+                  popup = popupTable(lephippigerSf,zcol = c("click_url"))) %>%
+ addCircleMarkers(data = tristisSf, 
+                  group = "Anax tristis", 
+                  radius = 2, 
+                  color = "#9980ab", 
+                  popup = popupTable(ltristisSf,zcol = c("click_url"))) %>%
+ addLayersControl( overlayGroups = c("Blue Emperor", "Orange Emperor", "Vagrant Emperor", "Black Emperor"), 
+                   options = layersControlOptions(collapsed = FALSE) ) %>% 
+ addLegend(position = "topright", 
+           colors = c("#83aed1", "#e1a56d", "#afbd6c", "#9980ab"), 
+           labels = c("Blue Emperor", "Orange Emperor", "Vagrant Emperor", "Black Emperor"))
+```
+<br> 
+It's amazing that such small creatures have such a large range! 
+There are at least 9 species of *Anax* dragonflies that are scientifically documented to migrate. While we still have much to learn about these impressive journeys, this distribution map shows that it's likely that at least some populations of these four species migrate too.
+<br> 
+A special mention to everyone who uses [iNaturalist](https://www.inaturalist.org/), citizen science makes observational data projects like this possible! 
+And thanks to [Jasper Slingsby](https://www.ecologi.st/) for showing me how to make this, and for all his patience. 
+<br> 
