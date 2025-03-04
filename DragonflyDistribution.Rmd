@@ -149,22 +149,22 @@ And now we're ready to create our user-friendly, and very pretty, interactive ma
 leaflet() %>%
  addTiles(group = "Default") %>%
  addCircleMarkers(data = imperatorSf, 
-                  group = "Anax imperator", 
+                  group = "Blue Emperor", 
                   radius = 2, 
                   color = "#83aed1", 
                   popup = popupTable(limperatorSf,zcol = c("click_url"))) %>%
  addCircleMarkers(data = speratusSf, 
-                  group = "Anax speratus", 
+                  group = "Orange Emperor", 
                   radius = 2, 
                   color = "#e1a56d", 
                   popup = popupTable(lsperatusSf,zcol = c("click_url"))) %>%
  addCircleMarkers(data = ephippigerSf, 
-                  group = "Anax ephippiger", 
+                  group = "Vagrant Emperor", 
                   radius = 2, 
                   color = "#afbd6c", 
                   popup = popupTable(lephippigerSf,zcol = c("click_url"))) %>%
  addCircleMarkers(data = tristisSf, 
-                  group = "Anax tristis", 
+                  group = "Black Emperor", 
                   radius = 2, 
                   color = "#9980ab", 
                   popup = popupTable(ltristisSf,zcol = c("click_url"))) %>%
